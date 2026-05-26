@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply antialiased;
+}
+
+/* Native <select> / <option> follow OS colors; without color-scheme + explicit
+   colors, dark pages often get low-contrast or “white flash” dropdowns. */
+@layer components {
+  .field-select {
+    @apply rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 shadow-sm;
+    @apply dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100;
+  }
+
+  .field-input {
+    @apply border border-slate-200 bg-white text-slate-900;
+    @apply dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100;
+  }
+}

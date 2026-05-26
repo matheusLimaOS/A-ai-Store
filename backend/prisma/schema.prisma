@@ -1,0 +1,225 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  PREPARING
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  PIX
+  CARD
+  CASH
+}
+
+enum CouponType {
+  PERCENT
+  FIXED
+}
+
+enum ProductSize {
+  ML_300
+  ML_500
+  ML_700
+  ML_1000
+}
+
+model User {
+  id                   String         @id @default(cuid())
+  email                String         @unique
+  passwordHash         String
+  name                 String
+  phone                String?
+  role                 Role           @default(USER)
+  blocked              Boolean        @default(false)
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
+  addresses            Address[]
+  orders               Order[]
+  refreshTokens        RefreshToken[]
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  @@index([email])
+  @@index([role])
+}
+
+model Address {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label          String?
+  street         String
+  number         String
+  complement     String?
+  neighborhood   String
+  city           String
+  state          String
+  zip            String
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?
+  imageUrl    String?
+  sortOrder   Int       @default(0)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([slug])
+}
+
+model Product {
+  id                String             @id @default(cuid())
+  name              String
+  slug              String             @unique
+  description       String             @db.Text
+  categoryId        String
+  category          Category           @relation(fields: [categoryId], references: [id])
+  available         Boolean            @default(true)
+  freeToppingsLimit Int                @default(3)
+  mainImageUrl      String?
+  images            ProductImage[]
+  sizes             ProductSizePrice[]
+  addons            ProductAddon[]
+  orderItems        OrderItem[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([categoryId])
+  @@index([slug])
+  @@index([available])
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  sortOrder Int      @default(0)
+
+  @@index([productId])
+}
+
+model ProductSizePrice {
+  id        String      @id @default(cuid())
+  productId String
+  product   Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  size      ProductSize
+  price     Decimal     @db.Decimal(10, 2)
+
+  @@unique([productId, size])
+  @@index([productId])
+}
+
+model ProductAddon {
+  id               String   @id @default(cuid())
+  productId        String
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name             String
+  price            Decimal  @db.Decimal(10, 2)
+  countsTowardFree Boolean  @default(true)
+  maxPerOrder      Int?
+
+  @@index([productId])
+}
+
+model Coupon {
+  id        String     @id @default(cuid())
+  code      String     @unique
+  type      CouponType
+  value     Decimal    @db.Decimal(10, 2)
+  validFrom DateTime
+  validTo   DateTime
+  maxUses   Int?
+  usedCount Int        @default(0)
+  active    Boolean    @default(true)
+  orders    Order[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([code])
+  @@index([active])
+}
+
+model Order {
+  id                    String        @id @default(cuid())
+  userId                String
+  user                  User          @relation(fields: [userId], references: [id])
+  status                OrderStatus   @default(PENDING)
+  paymentMethod         PaymentMethod
+  subtotal              Decimal       @db.Decimal(10, 2)
+  deliveryFee           Decimal       @db.Decimal(10, 2)
+  discount              Decimal       @db.Decimal(10, 2) @default(0)
+  total                 Decimal       @db.Decimal(10, 2)
+  couponId              String?
+  coupon                Coupon?       @relation(fields: [couponId], references: [id])
+  couponCode            String?
+  deliveryStreet        String
+  deliveryNumber        String
+  deliveryComplement    String?
+  deliveryNeighborhood  String
+  deliveryCity          String
+  deliveryState         String
+  deliveryZip           String
+  notes                 String?       @db.Text
+  items                 OrderItem[]
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id          String      @id @default(cuid())
+  orderId     String
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product     @relation(fields: [productId], references: [id])
+  productName String
+  size        ProductSize
+  quantity    Int
+  unitPrice   Decimal     @db.Decimal(10, 2)
+  addonsJson  Json
+  notes       String?     @db.Text
+  lineTotal   Decimal     @db.Decimal(10, 2)
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}

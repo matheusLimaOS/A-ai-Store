@@ -1,0 +1,78 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: imperio-acai-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-imperio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-imperio_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-imperio_acai}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    networks:
+      - imperio-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-imperio} -d ${POSTGRES_DB:-imperio_acai}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: imperio-acai-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      # Dentro da rede Docker o Postgres escuta em 5432. POSTGRES_PORT (ex.: 5433) vale só no host.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-imperio}:${POSTGRES_PASSWORD:-imperio_secret}@postgres:5432/${POSTGRES_DB:-imperio_acai}?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change-me-access-super-secret-min-32-chars!!}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-refresh-super-secret-min-32!!}
+      JWT_ACCESS_EXPIRES: ${JWT_ACCESS_EXPIRES:-15m}
+      JWT_REFRESH_EXPIRES: ${JWT_REFRESH_EXPIRES:-7d}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+      UPLOAD_DIR: /app/uploads
+      PUBLIC_UPLOAD_URL: ${PUBLIC_UPLOAD_URL:-http://localhost:8080/uploads}
+    volumes:
+      - uploads_data:/app/uploads
+    ports:
+      - "${BACKEND_PORT:-4000}:4000"
+    networks:
+      - imperio-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+    container_name: imperio-acai-web
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    networks:
+      - imperio-net
+
+volumes:
+  postgres_data:
+  uploads_data:
+
+networks:
+  imperio-net:
+    driver: bridge

@@ -1,0 +1,23 @@
+{
+  "name": "imperio-do-acai",
+  "private": true,
+  "scripts": {
+    "prepare": "node -e \"try { require('child_process').execSync('npx husky', {stdio:'inherit'}) } catch(e) {}\"",
+    "lint": "npm run lint --prefix backend && npm run lint --prefix frontend",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yml}\" --ignore-path .prettierignore"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^15.4.3",
+    "prettier": "^3.4.2",
+    "prisma": "^7.8.0"
+  },
+  "lint-staged": {
+    "backend/src/**/*.{ts,js}": "cd backend && eslint --fix --max-warnings 0",
+    "frontend/src/**/*.{ts,tsx}": "cd frontend && eslint --fix --max-warnings 0",
+    "*.{json,md,yml}": "prettier --write"
+  },
+  "dependencies": {
+    "@prisma/client": "^7.8.0"
+  }
+}
